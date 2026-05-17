@@ -3,19 +3,15 @@
 //Get rid of debug print lines once finished
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
-#include <WiFi.h>
-#include <WebServer.h>
-#include <WebSocketsServer.h>
 #include <Adafruit_VL53L0X.h>
 #include <Wire.h>
 #include <ICM_20948.h>
 #include <LittleFS.h>
 #include "motor.h"
 #include "servo.h"
+#include "ota.h"
+#include "network.h"
 
-void handleRoot();
-void handleNotFound();
-void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length);
 void readToF();
 void readIMU();
 
@@ -24,12 +20,6 @@ Adafruit_VL53L0X lox;
 
 //IMU
 ICM_20948_I2C imu;
-
-//WiFi
-const char* ssid = "Damian's ESP32";
-const char* password = "12345678";
-WebServer server(80);
-WebSocketsServer ws = WebSocketsServer(81);
 
 //SERVO
 
@@ -47,22 +37,13 @@ void setup()
   Serial.println("LittleFS started");
   motorInit();
   servoInit();
+  otaInit();
+  wifiInit();
   //NEOPIXEL
   pixel.begin();
   pixel.show();
   Serial.println("NeoPixel ready");
 
-  //WiFi
-  WiFi.softAP(ssid, password);
-  Serial.println("WiFi Started");
-  Serial.print("IP: ");
-  Serial.println(WiFi.softAPIP());
-  ws.begin();
-  ws.onEvent(onWebSocketEvent);
-  Serial.println("WebSocket Connected");
-  server.on("/", handleRoot);
-  server.onNotFound(handleNotFound);
-  server.begin();
   
   //I2C
   Wire.begin(15, 16);
@@ -133,55 +114,6 @@ void readIMU()
 }
 
 //WiFi
-void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length)
-{
-  if (type == WStype_TEXT)
-  {
-    String msg = String((char*)payload);
-    Serial.println("WS received: " + msg);
-    int motorVal = 0;
-    int servoVal = 90;
-
-    int mIndex = msg.indexOf("\"motor\":");
-    int sIndex = msg.indexOf("\"servo\":");
-
-    if (mIndex != -1)
-    {
-      motorVal = msg.substring(mIndex + 8).toInt();
-    }
-    if (sIndex != -1)
-    {
-      servoVal = msg.substring(sIndex + 8).toInt();
-    }
-    setServo(servoVal);
-
-    int spd = constrain(abs(motorVal), 0, 255);
-
-    if (motorVal > 0)
-    {
-      motorForward(spd);
-    }
-    else if (motorVal < 0)
-    {
-      motorReverse(spd);
-    }
-    else 
-    {
-      motorStop();
-    }
-  }
-}
-void handleRoot()
-{
-  server.serveStatic("/", LittleFS, "/index.html");
-}
-
-void handleNotFound()
-{
-  Serial.print("No handler for: ");
-  Serial.println(server.uri());
-  server.send(404, "text/plain", "Not found");
-}
 
 //NEOPIXEL
 void rgbCycle()
