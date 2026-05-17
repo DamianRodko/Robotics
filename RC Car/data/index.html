@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>ESP32 Controller</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #111;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-evenly;
+      height: 100dvh;
+      font-family: monospace;
+      color: #aaa;
+      user-select: none;
+      overflow: hidden;
+    }
+    #status {
+      font-size: 11px;
+      padding: 3px 12px;
+      border-radius: 12px;
+      background: #1a1a1a;
+      text-align: center;
+    }
+    #status.on  { color: #4caf50; }
+    #status.off { color: #e57373; }
+    .wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .label {
+      font-size: 10px;
+      color: #555;
+      letter-spacing: 0.08em;
+    }
+    .joy {
+      width: 140px; height: 140px;
+      border-radius: 50%;
+      background: #1c1c1c;
+      border: 1.5px solid #2a2a2a;
+      position: relative;
+      touch-action: none;
+    }
+    .stick {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      background: #2d2d2d;
+      border: 1.5px solid #444;
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    h1 {
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      color: #444;
+    }
+    .telemetry {
+      font-size: 12px;
+      color: #444;
+      text-align: center;
+      line-height: 2.2;
+    }
+    .telemetry span {
+      color: #888;
+      display: block;
+      font-size: 16px;
+    }
+
+    /* GEAR SYSTEM */
+    .gear-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .gear-label {
+      font-size: 10px;
+      color: #555;
+      letter-spacing: 0.08em;
+    }
+    .gear-display {
+      font-size: 22px;
+      color: #4caf50;
+      font-weight: bold;
+      letter-spacing: 0.05em;
+      min-width: 60px;
+      text-align: center;
+    }
+    .gear-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .gear-btn {
+      width: 54px;
+      padding: 7px 0;
+      border-radius: 8px;
+      border: 1.5px solid #2a2a2a;
+      background: #1c1c1c;
+      color: #555;
+      font-family: monospace;
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+    }
+    .gear-btn.active {
+      border-color: #4caf50;
+      color: #4caf50;
+      background: #1a2a1a;
+    }
+    .gear-btn:active {
+      transform: scale(0.95);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LEFT JOYSTICK: THROTTLE -->
+  <div class="wrap">
+    <div class="joy" id="joyL">
+      <div class="stick" id="stickL"></div>
+    </div>
+    <div class="label">THROTTLE</div>
+  </div>
+
+  <!-- CENTER: STATUS + TELEMETRY -->
+  <div class="center">
+    <h1>ESP32</h1>
+    <div id="status" class="off">disconnected</div>
+    <div class="telemetry">
+      Motor<br><span id="mVal">0</span>
+      Servo<br><span id="sVal">90</span>
+    </div>
+  </div>
+
+  <!-- RIGHT JOYSTICK: STEERING -->
+  <div class="wrap">
+    <div class="joy" id="joyR">
+      <div class="stick" id="stickR"></div>
+    </div>
+    <div class="label">STEERING</div>
+  </div>
+
+  <!-- GEAR SELECTOR -->
+  <div class="gear-wrap">
+    <div class="gear-label">GEAR</div>
+    <div class="gear-display" id="gearDisplay">1</div>
+    <div class="gear-buttons" id="gearButtons">
+      <button class="gear-btn active" data-gear="1" data-max="64">1st</button>
+      <button class="gear-btn"        data-gear="2" data-max="128">2nd</button>
+      <button class="gear-btn"        data-gear="3" data-max="192">3rd</button>
+      <button class="gear-btn"        data-gear="4" data-max="255">MAX</button>
+    </div>
+  </div>
+
+  <script>
+    const MIN_SERVO = 60;
+    const MAX_SERVO = 120;
+    let motor = 0, servo = 90, ws;
+    let maxSpeed = 64; // default gear 1
+
+    // GEAR BUTTONS
+    document.getElementById('gearButtons').addEventListener('click', e => {
+      const btn = e.target.closest('.gear-btn');
+      if (!btn) return;
+      document.querySelectorAll('.gear-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      maxSpeed = parseInt(btn.dataset.max);
+      document.getElementById('gearDisplay').textContent = btn.dataset.gear;
+    });
+
+    function connectWS() {
+      ws = new WebSocket(`ws://${location.hostname}:81/`);
+      const s = document.getElementById('status');
+      ws.onopen  = () => { s.textContent = 'connected';    s.className = 'on';  };
+      ws.onclose = () => {
+        s.textContent = 'disconnected';
+        s.className = 'off';
+        setTimeout(connectWS, 1000);
+      };
+    }
+
+    function sendData() {
+      if (ws && ws.readyState === 1)
+        ws.send(JSON.stringify({ motor, servo }));
+    }
+
+    function setupJoystick(joy, stick, isMotor) {
+      let active = false;
+      joy.addEventListener('touchstart', e => { e.preventDefault(); active = true; }, { passive: false });
+      joy.addEventListener('touchmove', e => {
+        if (!active) return;
+        e.preventDefault();
+        const rect = joy.getBoundingClientRect();
+        const t    = e.targetTouches[0];
+        const dx   = t.clientX - rect.left  - rect.width  / 2;
+        const dy   = t.clientY - rect.top   - rect.height / 2;
+        const max  = 60;
+        const dist = Math.min(max, Math.hypot(dx, dy));
+        const ang  = Math.atan2(dy, dx);
+        const nx   = Math.cos(ang) * dist;
+        const ny   = Math.sin(ang) * dist;
+        stick.style.transform = `translate(calc(-50% + ${nx}px), calc(-50% + ${ny}px))`;
+
+        if (isMotor) {
+          // Scale joystick output by maxSpeed instead of always 255
+          const raw = Math.round(-ny * (maxSpeed / 60));
+          motor = Math.max(-maxSpeed, Math.min(maxSpeed, raw));
+          const displayMotor = Math.abs(motor);
+          document.getElementById('mVal').textContent = (motor < 0 ? 'R ' : 'F ') + displayMotor;
+        } else {
+          servo = Math.max(MIN_SERVO, Math.min(MAX_SERVO, Math.round(90 + nx * 1.0)));
+          document.getElementById('sVal').textContent = servo;
+        }
+        sendData();
+      }, { passive: false });
+
+      joy.addEventListener('touchend', () => {
+        active = false;
+        stick.style.transform = 'translate(-50%, -50%)';
+        if (isMotor) {
+          motor = 0;
+          document.getElementById('mVal').textContent = 0;
+        } else {
+          servo = 90;
+          document.getElementById('sVal').textContent = 90;
+        }
+        sendData();
+      });
+    }
+
+    window.onload = () => {
+      connectWS();
+      setupJoystick(document.getElementById('joyL'), document.getElementById('stickL'), true);
+      setupJoystick(document.getElementById('joyR'), document.getElementById('stickR'), false);
+    };
+  </script>
+</body>
+</html>

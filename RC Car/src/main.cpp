@@ -2,7 +2,6 @@
 //String vs *char
 //Get rid of debug print lines once finished
 #include <Arduino.h>
-#include <ESP32Servo.h>
 #include <Adafruit_NeoPixel.h>
 #include <WiFi.h>
 #include <WebServer.h>
@@ -11,6 +10,8 @@
 #include <Wire.h>
 #include <ICM_20948.h>
 #include <LittleFS.h>
+#include "motor.h"
+#include "servo.h"
 
 void handleRoot();
 void handleNotFound();
@@ -31,21 +32,6 @@ WebServer server(80);
 WebSocketsServer ws = WebSocketsServer(81);
 
 //SERVO
-Servo s1;
-int servoPin = 13;
-int sAngle = 90;
-int minAngle = 60;
-int maxAngle = 120;
-
-//MOTOR
-int motorF = 5;
-int motorR = 6;
-int motorPwmPin = 7;
-int speed = 200;
-
-//PWM
-int pwmFreq = 5000;  //tune
-int pwmRes = 8;
 
 //NEOPIXEL
 Adafruit_NeoPixel pixel(1, 48, NEO_GRB + NEO_KHZ800);
@@ -58,26 +44,13 @@ void setup()
   delay(500);
   Serial.println("ESP32 started");
   LittleFS.begin(true);
-  Serial.println("LittleFS started")
-
-  //SERVO
-  s1.attach(servoPin);
-  Serial.println("Servo attached");
-  s1.write(sAngle);
-  //MOTOR
-  pinMode(motorF, OUTPUT);
-  pinMode(motorR, OUTPUT);
-  Serial.println("Motor pins ready");
-
+  Serial.println("LittleFS started");
+  motorInit();
+  servoInit();
   //NEOPIXEL
   pixel.begin();
   pixel.show();
   Serial.println("NeoPixel ready");
-
-  //PWM
-  ledcAttach(motorPwmPin, pwmFreq, pwmRes);
-  ledcWrite(motorPwmPin, 0);
-  Serial.println("PWM ready");
 
   //WiFi
   WiFi.softAP(ssid, password);
@@ -131,67 +104,6 @@ void loop()
   //motorTest();
 }
 
-//SERVO
-void servoTest() {
-  Serial.println("SERVO RIGHT");
-  for (int angle = minAngle; angle <= maxAngle; angle++) {
-    s1.write(angle);
-    delay(15);
-  }
-  Serial.println("SERVO LEFT");
-  for (int angle = maxAngle; angle >= minAngle; angle--) {
-    s1.write(angle);
-    delay(15);
-  }
-}
-
-//MOTOR FUNCTIONS
-void motorForward() {
-  digitalWrite(motorF, HIGH);
-  digitalWrite(motorR, LOW);
-  ledcWrite(motorPwmPin, speed);
-}
-void motorReverse() {
-  digitalWrite(motorF, LOW);
-  digitalWrite(motorR, HIGH);
-  ledcWrite(motorPwmPin, speed);
-}
-void motorStop() {
-  digitalWrite(motorF, LOW);
-  digitalWrite(motorR, LOW);
-  ledcWrite(motorPwmPin, 0);
-}
-void motorTest()
-{
-  Serial.println("MOTOR FORWARD");
-  digitalWrite(motorF, HIGH);
-  digitalWrite(motorR, LOW);
-  for (int i = 0; i <= 255; i++)
-  {
-    ledcWrite(motorPwmPin, i);
-    Serial.println(i);
-    delay(15);
-  }
-
-  Serial.println("MOTOR STOP");
-  motorStop();
-  delay(10000);
-
-  Serial.println("MOTOR REVERSE");
-  digitalWrite(motorF, LOW);
-  digitalWrite(motorR, HIGH);
-  for (int i = 0; i <= 255; i++)
-  {
-    ledcWrite(motorPwmPin, i);
-    Serial.println(i);
-    delay(15);
-  }
-
-  Serial.println("Motor test: stop");
-  motorStop();
-  Serial.println("Motor test: done");
-}
-
 //ToF
 void readToF()
 {
@@ -241,19 +153,17 @@ void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t lengt
     {
       servoVal = msg.substring(sIndex + 8).toInt();
     }
-    servoVal = constrain(servoVal, minAngle, maxAngle);
-    sAngle = servoVal;
-    s1.write(servoVal);
+    setServo(servoVal);
 
-    speed = constrain(abs(motorVal), 0, 255);
+    int spd = constrain(abs(motorVal), 0, 255);
 
-    if (motorVal > 20)
+    if (motorVal > 0)
     {
-      motorForward();
+      motorForward(spd);
     }
-    else if (motorVal < -20)
+    else if (motorVal < 0)
     {
-      motorReverse();
+      motorReverse(spd);
     }
     else 
     {
@@ -274,7 +184,8 @@ void handleNotFound()
 }
 
 //NEOPIXEL
-void rgbCycle() {
+void rgbCycle()
+{
   int r, g, b;
   if (rgbState < 85) {
     r = 255 - rgbState * 3;
