@@ -17,22 +17,27 @@ void setup()
   Serial.begin(115200);
   delay(500);
   Serial.println("ESP32 started");
-  LittleFS.begin(true);
-  Serial.println("LittleFS started");
+  if (!LittleFS.begin(true))
+  {
+    Serial.println("LittleFS mount failed");
+  }
+  else
+  {
+    Serial.println("LittleFS started");
+  }
+  servoInit();
   motorInit();
   neopixelInit();
   wifiInit();
-  otaInit();
-  sensorsInit();
-  servoInit();
+  //otaInit();
+  //sensorsInit();
 }
 
 //LOOP
 void loop()
 {
   wifiHandle();
-  otaHandle();
-
+  //otaHandle();
   //neopixelTest();
   //motorTest();
   //servoTest();
