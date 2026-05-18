@@ -1,64 +1,51 @@
 #include <Arduino.h>
 #include "motor.h"
-//MOTOR
-int motorF = 5;
-int motorR = 6;
-int motorPwmPin = 7;
-//PWM
-int pwmFreq = 5000;  //tune
-int pwmRes = 8;
+#include <ESP32Servo.h>
+//ESC
+Servo esc;
+int escPin = 7;
 
 void motorInit()
 {
-    pinMode(motorF, OUTPUT);
-    pinMode(motorR, OUTPUT);
-    //PWM
-    ledcAttach(motorPwmPin, pwmFreq, pwmRes);
-    ledcWrite(motorPwmPin, 0);
+    esc.attach(escPin, 1000, 2000);
+    esc.writeMicroseconds(1500);//arm ESC
+    delay(2000);//wait for ESC to arm
     Serial.println("Motor Initialized");
 }
 void motorForward(int speed)
 {
-  digitalWrite(motorF, HIGH);
-  digitalWrite(motorR, LOW);
-  ledcWrite(motorPwmPin, speed);
+  int pulse = map(speed, 0, 100, 1500, 2000);
+  esc.writeMicroseconds(pulse);
 }
 void motorReverse(int speed)
 {
-  digitalWrite(motorF, LOW);
-  digitalWrite(motorR, HIGH);
-  ledcWrite(motorPwmPin, speed);
+  int pulse = map(speed, 0, 100, 1500, 1000);
+  esc.writeMicroseconds(pulse);
 }
 void motorStop()
 {
-  digitalWrite(motorF, LOW);
-  digitalWrite(motorR, LOW);
-  ledcWrite(motorPwmPin, 0);
+  esc.writeMicroseconds(1500);
 }
 void motorTest()
 {
   Serial.println("MOTOR FORWARD");
-  digitalWrite(motorF, HIGH);
-  digitalWrite(motorR, LOW);
-  for (int i = 0; i <= 255; i++)
+  for (int i = 0; i <= 100; i++)
   {
-    ledcWrite(motorPwmPin, i);
+    motorForward(i);
     Serial.println(i);
-    delay(15);
+    delay(50);
   }
 
   Serial.println("MOTOR STOP");
   motorStop();
-  delay(10000);
+  delay(3000);
 
   Serial.println("MOTOR REVERSE");
-  digitalWrite(motorF, LOW);
-  digitalWrite(motorR, HIGH);
-  for (int i = 0; i <= 255; i++)
+  for (int i = 0; i <= 100; i++)
   {
-    ledcWrite(motorPwmPin, i);
+    motorReverse(i);
     Serial.println(i);
-    delay(15);
+    delay(50);
   }
 
   Serial.println("Motor test: stop");

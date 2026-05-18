@@ -30,10 +30,10 @@ void setup()
 //LOOP
 void loop()
 {
-  neopixelTest();
   wifiHandle();
   otaHandle();
 
+  //neopixelTest();
   //motorTest();
   //servoTest();
   //readToF();
