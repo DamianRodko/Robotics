@@ -15,7 +15,6 @@ const int MotorRReverse = 8;
 const int prL = A0;//Left
 const int prR = A1;//Right
 const int prF = A3;//Forward
-const int prB = A2;//Backwards
 
 //IR Sensor Pins
 const int irL = 6;
@@ -43,7 +42,7 @@ const int wallTurnTime = 400;
 bool wallTurnLeft = false;
 
 //Sensor Values
-int  prLS, prFS, prRS, prBS;
+int  prLS, prFS, prRS;
 bool irLS, irRS;
 long wallDist;
 
@@ -106,7 +105,6 @@ void loop()
 
 void readSensors()
 {
-  prBS = analogRead(prB);
   prFS = analogRead(prF);
   prRS = analogRead(prR);
   prLS = analogRead(prL);
@@ -122,8 +120,6 @@ void readSensors()
   Serial.println(prLS);
   Serial.print("FORWARDS LIGHT: ");
   Serial.println(prFS);
-  Serial.print("BACKWARDS LIGHT: ");
-  Serial.println(prBS);
   Serial.print("RIGHT IR: ");
   Serial.println(irRS);
   Serial.print("LEFT IR: ");
@@ -197,17 +193,12 @@ void teleOp()
 {
   readSensors();
   bool forward  = (prFS > baseLightVal);
-  bool backwards = (prBS > baseLightVal);
   bool right = (prRS > baseLightVal);
   bool left  = (prLS > baseLightVal);
 
   if (forward)
   {
     motorForward();
-  }
-  else if (backwards)
-  {
-    motorReverse();
   }
   else if (right)
   {
@@ -236,10 +227,6 @@ void motorDrive(int left, int right)
 void motorForward()
 {
   motorDrive(teleSpeed,  teleSpeed);
-}
-void motorReverse()
-{
-  motorDrive(-teleSpeed, -teleSpeed);
 }
 void motorTurnL()  
 {
