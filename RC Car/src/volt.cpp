@@ -1,13 +1,16 @@
 #include "volt.h"
 #include <Arduino.h>
-int voltPin = A0;
+int voltPin = 4;
+float dividerRatio = 100.0f/ 330.0f+ 100.0f; 
 
 void voltInit()
 {
-  
+  analogSetAttenuation(ADC_11db);
 }
 
-float voltRead() {
+float voltRead()
+{
   // Read the voltage from the sensor
-  return 0.0; // Replace with actual voltage reading
+  float vADC = analogReadMilliVolts(voltPin) / 1000.0f; // Convert mV to V
+  return vADC / dividerRatio; // Replace with actual voltage reading
 }

@@ -1,5 +1,5 @@
-#ifndef MOTOR_H
-#define MOTOR_H
+#ifndef VOLT_H
+#define VOLT_H
 
 void voltInit();
 float voltRead();

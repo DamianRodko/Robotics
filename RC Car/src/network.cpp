@@ -33,9 +33,14 @@ void wifiHandle()
 
 void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length)
 {
-  if (type == WStype_TEXT)
+  if (type == WStype_DISCONNECTED)
   {
-    String msg = String((char*)payload);
+    motorStop();
+    setServo(90);
+  }
+  else if (type == WStype_TEXT)
+  {
+    String msg = String((char*)payload, length);
     Serial.println("WS received: " + msg);
     int motorVal = 0;
     int servoVal = 90;
@@ -55,9 +60,18 @@ void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t lengt
 
     int spd = constrain(abs(motorVal), 0, 255);
 
-    if (motorVal > 0)      motorForward(spd);
-    else if (motorVal < 0) motorReverse(spd);
-    else                   motorStop();
+    if (motorVal > 0)
+    {
+      motorForward(spd);
+    }
+    else if (motorVal < 0)
+    {
+      motorReverse(spd);
+    }
+    else
+    {
+      motorStop();
+    }
   }
 }
 

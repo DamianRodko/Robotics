@@ -2,6 +2,8 @@
 
 int motor1F, motor1R, button, motor2F, motor2R, irF, irB, irFs, irBs, speed;
 boolean move, start;
+void playGame();
+void readSensors();
 void setup()
 {
   Serial.begin(9600);

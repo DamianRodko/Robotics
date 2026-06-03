@@ -68,39 +68,40 @@ void setup()
 
 void loop()
 {
-  long mil = millis();
-  //Path
-  if (digitalRead(bPath) == LOW)
-  {
-    wallTurnLeft = !wallTurnLeft;
-    delay(400);
-  }
-  if (wallTurnLeft == true)
-  {
-    digitalWrite(ledPath, HIGH);
-  }
-  else
-  {
-    digitalWrite(ledPath, LOW);
-  }
+  readSensors();
+  // long mil = millis();
+  // //Path
+  // if (digitalRead(bPath) == LOW)
+  // {
+  //   wallTurnLeft = !wallTurnLeft;
+  //   delay(400);
+  // }
+  // if (wallTurnLeft == true)
+  // {
+  //   digitalWrite(ledPath, HIGH);
+  // }
+  // else
+  // {
+  //   digitalWrite(ledPath, LOW);
+  // }
   
-  //Mode timer
-  if (mil < setupTime)
-  {
+  // //Mode timer
+  // if (mil < setupTime)
+  // {
 
-  }
-  else if (mil < autonTime + setupTime)
-  {
-    auton();
-  }
-  else if (mil < autonTime + setupTime + stopTime)
-  {
-    motorStop();
-  }
-  else
-  {
-    teleOp();
-  }
+  // }
+  // else if (mil < autonTime + setupTime)
+  // {
+  //   auton();
+  // }
+  // else if (mil < autonTime + setupTime + stopTime)
+  // {
+  //   motorStop();
+  // }
+  // else
+  // {
+  //   teleOp();
+  // }
 }
 
 void readSensors()
@@ -175,7 +176,8 @@ void auton()
     left  -= turnStrength;
     right += turnStrength;
 
-  } else if (irLS && irRS)//
+  }
+  else if (irLS && irRS)//
   {
     // Both walls (narrow section) -> stay straight, no correction
     left  = autoSpeed;
@@ -227,16 +229,20 @@ void motorDrive(int left, int right)
 void motorForward()
 {
   motorDrive(teleSpeed,  teleSpeed);
+  Serial.println("Forward");
 }
 void motorTurnL()  
 {
   motorDrive(-teleSpeed,  teleSpeed);
-} // pivot left
+  Serial.println("Left");
+}
 void motorTurnR() 
 {
   motorDrive( teleSpeed, -teleSpeed);
-} // pivot right
+  Serial.println("Right");
+}
 void motorStop()
 {
   motorDrive(0, 0);
+  Serial.println("Stop");
 }

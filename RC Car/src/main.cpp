@@ -9,7 +9,7 @@
 #include "network.h"
 #include "neopixel.h"
 #include "sensors.h"
-
+#include "volt.h"
 
 //SETUP
 void setup()
@@ -25,6 +25,7 @@ void setup()
   {
     Serial.println("LittleFS started");
   }
+  voltInit();
   servoInit();
   motorInit();
   neopixelInit();
@@ -36,6 +37,7 @@ void setup()
 //LOOP
 void loop()
 {
+  voltRead();
   wifiHandle();
   //otaHandle();
   //neopixelTest();
