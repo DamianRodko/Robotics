@@ -5,6 +5,8 @@
 #include <WebServer.h>
 #include <WiFi.h>
 #include <LittleFS.h>
+#include "neopixel.h"
+#include "volt.h"
 
 const char* ssid = "Damian's ESP32";
 const char* password = "12345678";
@@ -29,6 +31,31 @@ void wifiHandle()
 {
   server.handleClient();
   ws.loop();
+  //neopixel battery status
+  static unsigned long lastVolt = 0;
+    if (millis() - lastVolt > 5000)
+    {
+        lastVolt = millis();
+        float v = voltRead();
+
+        // WebSocket broadcast
+        String msg = "{\"voltage\":" + String(v, 1) + "}";
+        ws.broadcastTXT(msg);
+
+        // NeoPixel status
+        if (v > 11.1)
+        {
+            setNeopixel(0, 255, 0);   // green
+        }
+        else if (v > 10.5)
+        {
+            setNeopixel(255, 120, 0); // yellow
+        }
+        else
+        {
+            setNeopixel(255, 0, 0);   // red
+        }
+    }
 }
 
 void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length)

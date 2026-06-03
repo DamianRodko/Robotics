@@ -78,6 +78,45 @@
       font-size: 16px;
     }
 
+    /* BATTERY */
+    .battery-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+    .battery-label {
+      font-size: 10px;
+      color: #555;
+      letter-spacing: 0.08em;
+    }
+    .battery-value {
+      font-size: 20px;
+      font-weight: bold;
+      letter-spacing: 0.04em;
+      transition: color 0.6s ease;
+    }
+    .battery-value.good     { color: #4caf50; }
+    .battery-value.warn     { color: #f5a623; }
+    .battery-value.critical { color: #e57373; animation: pulse 0.8s infinite; }
+    .battery-bar-track {
+      width: 54px;
+      height: 5px;
+      background: #1c1c1c;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .battery-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.6s ease, background 0.6s ease;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
     /* GEAR SYSTEM */
     .gear-wrap {
       display: flex;
@@ -155,6 +194,18 @@
     <div class="label">STEERING</div>
   </div>
 
+  <!-- BATTERY + GEAR SELECTOR -->
+  <div style="display:flex;flex-direction:column;align-items:center;gap:14px;">
+
+  <!-- BATTERY -->
+  <div class="battery-wrap">
+    <div class="battery-label">BATTERY</div>
+    <div class="battery-value good" id="battValue">--.-V</div>
+    <div class="battery-bar-track">
+      <div class="battery-bar-fill" id="battBar" style="width:100%;background:#4caf50;"></div>
+    </div>
+  </div>
+
   <!-- GEAR SELECTOR -->
   <div class="gear-wrap">
     <div class="gear-label">GEAR</div>
@@ -167,11 +218,39 @@
     </div>
   </div>
 
+  </div> <!-- end battery+gear wrapper -->
+
   <script>
     const MIN_SERVO = 60;
     const MAX_SERVO = 120;
     let motor = 0, servo = 90, ws;
     let maxSpeed = 64; // default gear 1
+
+    // BATTERY
+    const BATT_MAX  = 12.6;
+    const BATT_WARN = 11.1;
+    const BATT_CRIT = 10.5;
+
+    function updateBattery(v) {
+      const el  = document.getElementById('battValue');
+      const bar = document.getElementById('battBar');
+
+      el.textContent = v.toFixed(1) + 'V';
+
+      // color class
+      el.className = 'battery-value';
+      let color;
+      if (v > BATT_WARN)      { el.classList.add('good');     color = '#4caf50'; }
+      else if (v > BATT_CRIT) { el.classList.add('warn');     color = '#f5a623'; }
+      else                    { el.classList.add('critical'); color = '#e57373'; }
+
+      // bar width: scale between BATT_CRIT (0%) and BATT_MAX (100%)
+      const pct = Math.max(0, Math.min(100,
+        ((v - BATT_CRIT) / (BATT_MAX - BATT_CRIT)) * 100
+      ));
+      bar.style.width      = pct + '%';
+      bar.style.background = color;
+    }
 
     // GEAR BUTTONS
     document.getElementById('gearButtons').addEventListener('click', e => {
@@ -191,6 +270,12 @@
         s.textContent = 'disconnected';
         s.className = 'off';
         setTimeout(connectWS, 1000);
+      };
+      ws.onmessage = e => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.voltage !== undefined) updateBattery(data.voltage);
+        } catch(_) {}
       };
     }
 
