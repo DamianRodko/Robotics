@@ -1,6 +1,7 @@
 #ifndef NEOPIXEL_H
 #define NEOPIXEL_H
 void neopixelInit();
-void setNeopixel(int r, int g, int b);
+void setNeopixel(int red, int green, int blue);
 void neopixelTest();
+
 #endif

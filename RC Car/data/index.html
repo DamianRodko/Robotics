@@ -182,7 +182,7 @@
     <div id="status" class="off">disconnected</div>
     <div class="telemetry">
       Motor<br><span id="mVal">0</span>
-      Servo<br><span id="sVal">90</span>
+      Servo<br><span id="sVal">--</span>
     </div>
   </div>
 
@@ -221,15 +221,20 @@
   </div> <!-- end battery+gear wrapper -->
 
   <script>
-    const MIN_SERVO = 60;
-    const MAX_SERVO = 120;
-    let motor = 0, servo = 90, ws;
-    let maxSpeed = 64; // default gear 1
+    // Keep these three values synchronized with servo.h.
+    const servoMinAngle = 0;
+    const servoCenterAngle = 80;
+    const servoMaxAngle = 150;
+    const controlHeartbeatMs = 100;
+    let motor = 0, servo = servoCenterAngle, ws;
+    let maxSpeed = 25;
+    let releaseMotorControl = () => {};
+    let releaseServoControl = () => {};
 
     // BATTERY
-    const BATT_MAX  = 12.6;
-    const BATT_WARN = 11.1;
-    const BATT_CRIT = 10.5;
+    const batteryMax = 12.6;
+    const batteryWarning = 11.1;
+    const batteryCritical = 10.5;
 
     function updateBattery(v) {
       const el  = document.getElementById('battValue');
@@ -240,13 +245,13 @@
       // color class
       el.className = 'battery-value';
       let color;
-      if (v > BATT_WARN)      { el.classList.add('good');     color = '#4caf50'; }
-      else if (v > BATT_CRIT) { el.classList.add('warn');     color = '#f5a623'; }
+      if (v > batteryWarning)      { el.classList.add('good');     color = '#4caf50'; }
+      else if (v > batteryCritical) { el.classList.add('warn');     color = '#f5a623'; }
       else                    { el.classList.add('critical'); color = '#e57373'; }
 
-      // bar width: scale between BATT_CRIT (0%) and BATT_MAX (100%)
+      // Scale between the critical voltage (0%) and full charge (100%).
       const pct = Math.max(0, Math.min(100,
-        ((v - BATT_CRIT) / (BATT_MAX - BATT_CRIT)) * 100
+        ((v - batteryCritical) / (batteryMax - batteryCritical)) * 100
       ));
       bar.style.width      = pct + '%';
       bar.style.background = color;
@@ -259,14 +264,23 @@
       document.querySelectorAll('.gear-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       maxSpeed = parseInt(btn.dataset.max);
+      motor = Math.max(-maxSpeed, Math.min(maxSpeed, motor));
+      const displayMotor = Math.abs(motor);
+      document.getElementById('mVal').textContent = (motor < 0 ? 'R ' : 'F ') + displayMotor;
       document.getElementById('gearDisplay').textContent = btn.dataset.gear;
+      sendData();
     });
 
     function connectWS() {
       ws = new WebSocket(`ws://${location.hostname}:81/`);
       const s = document.getElementById('status');
-      ws.onopen  = () => { s.textContent = 'connected';    s.className = 'on';  };
+      ws.onopen = () => {
+        s.textContent = 'connected';
+        s.className = 'on';
+        releaseAllControls();
+      };
       ws.onclose = () => {
+        releaseAllControls(false);
         s.textContent = 'disconnected';
         s.className = 'off';
         setTimeout(connectWS, 1000);
@@ -282,6 +296,12 @@
     function sendData() {
       if (ws && ws.readyState === 1)
         ws.send(JSON.stringify({ motor, servo }));
+    }
+
+    function releaseAllControls(notify = true) {
+      releaseMotorControl(false);
+      releaseServoControl(false);
+      if (notify) sendData();
     }
 
     function setupJoystick(joy, stick, isMotor) {
@@ -308,30 +328,50 @@
           const displayMotor = Math.abs(motor);
           document.getElementById('mVal').textContent = (motor < 0 ? 'R ' : 'F ') + displayMotor;
         } else {
-          servo = Math.max(MIN_SERVO, Math.min(MAX_SERVO, Math.round(90 + nx * 1.0)));
+          const steeringScale = nx < 0
+            ? (servoCenterAngle - servoMinAngle) / max
+            : (servoMaxAngle - servoCenterAngle) / max;
+          servo = Math.max(servoMinAngle, Math.min(servoMaxAngle,
+            Math.round(servoCenterAngle + nx * steeringScale)));
           document.getElementById('sVal').textContent = servo;
         }
         sendData();
       }, { passive: false });
 
-      joy.addEventListener('touchend', () => {
+      const release = (notify = true) => {
         active = false;
         stick.style.transform = 'translate(-50%, -50%)';
         if (isMotor) {
           motor = 0;
           document.getElementById('mVal').textContent = 0;
         } else {
-          servo = 90;
-          document.getElementById('sVal').textContent = 90;
+          servo = servoCenterAngle;
+          document.getElementById('sVal').textContent = servoCenterAngle;
         }
-        sendData();
-      });
+        if (notify) sendData();
+      };
+
+      joy.addEventListener('touchend', () => release());
+      joy.addEventListener('touchcancel', () => release());
+      return release;
     }
 
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) releaseAllControls();
+    });
+    window.addEventListener('blur', () => releaseAllControls());
+    window.addEventListener('pagehide', () => releaseAllControls());
+
     window.onload = () => {
+      document.getElementById('sVal').textContent = servoCenterAngle;
+      releaseMotorControl = setupJoystick(
+        document.getElementById('joyL'), document.getElementById('stickL'), true
+      );
+      releaseServoControl = setupJoystick(
+        document.getElementById('joyR'), document.getElementById('stickR'), false
+      );
       connectWS();
-      setupJoystick(document.getElementById('joyL'), document.getElementById('stickL'), true);
-      setupJoystick(document.getElementById('joyR'), document.getElementById('stickR'), false);
+      setInterval(sendData, controlHeartbeatMs);
     };
   </script>
 </body>

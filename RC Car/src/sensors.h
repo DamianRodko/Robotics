@@ -2,7 +2,7 @@
 #define SENSORS_H
 
 void sensorsInit();
-void readToF();
-void readIMU();
+void readDistance();
+void readImu();
 
 #endif

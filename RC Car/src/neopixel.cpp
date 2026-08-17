@@ -1,46 +1,54 @@
 #include "neopixel.h"
+#include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
-Adafruit_NeoPixel pixel(1, 48, NEO_GRB + NEO_KHZ800);
-int rgbState = 0;
+
+namespace
+{
+Adafruit_NeoPixel neoPixel(1, 48, NEO_GRB + NEO_KHZ800);
+uint8_t colorPosition = 0;
+}
+
 void neopixelInit()
 {
-  //NEOPIXEL
-  pixel.begin();
-  pixel.show();
+  neoPixel.begin();
+  neoPixel.clear();
+  neoPixel.show();
   Serial.println("NeoPixel ready");
 }
-void setNeopixel(int r, int g, int b)
+
+void setNeopixel(int red, int green, int blue)
 {
-  pixel.setPixelColor(0, pixel.Color(r, g, b));
-  pixel.show();
+  neoPixel.setPixelColor(0, neoPixel.Color(red, green, blue));
+  neoPixel.show();
 }
+
 void neopixelTest()
 {
-  int r, g, b;
-  if (rgbState < 85)
+  int red;
+  int green;
+  int blue;
+
+  if (colorPosition < 85)
   {
-    r = 255 - rgbState * 3;
-    g = rgbState * 3;
-    b = 0;
+    red = 255 - colorPosition * 3;
+    green = colorPosition * 3;
+    blue = 0;
   }
-  else if (rgbState < 170)
+  else if (colorPosition < 170)
   {
-    int temp = rgbState - 85;
-    r = 0;
-    g = 255 - temp * 3;
-    b = temp * 3;
+    const int phase = colorPosition - 85;
+    red = 0;
+    green = 255 - phase * 3;
+    blue = phase * 3;
   }
   else
   {
-    int temp = rgbState - 170;
-    r = temp * 3;
-    g = 0;
-    b = 255 - temp * 3;
+    const int phase = colorPosition - 170;
+    red = phase * 3;
+    green = 0;
+    blue = 255 - phase * 3;
   }
-  setNeopixel(r, g, b);
-  rgbState++;
-  if (rgbState > 255)
-  {
-    rgbState = 0;
-  }
+
+  setNeopixel(red, green, blue);
+  colorPosition++;
 }

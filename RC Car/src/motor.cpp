@@ -1,54 +1,67 @@
-#include <Arduino.h>
 #include "motor.h"
-#include <ESP32Servo.h>
-//ESC
-Servo esc;
-int escPin = 7;
+#include <Arduino.h>
+
+namespace
+{
+constexpr uint8_t escPin = 18;
+constexpr uint8_t escChannel = 1;
+constexpr int minSpeed = 0;
+constexpr int maxSpeed = 100;
+constexpr int neutralPulseUs = 1500;
+bool escReady = false;
+
+void writeEscPulse(int pulseUs)
+{
+  if (!escReady)
+  {
+    return;
+  }
+
+  pulseUs = constrain(pulseUs, 1000, 2000);
+  ledcWrite(escChannel, (pulseUs * 16383UL) / 20000UL);
+}
+}
 
 void motorInit()
 {
-    esc.attach(escPin, 1000, 2000);
-    esc.writeMicroseconds(1500);//arm ESC
-    delay(2000);//wait for ESC to arm
-    Serial.println("Motor Initialized");
+  escReady = ledcSetup(escChannel, 50, 14) != 0;
+
+  if (!escReady)
+  {
+    Serial.println("ERROR: ESC PWM setup failed");
+    return;
+  }
+
+  ledcAttachPin(escPin, escChannel);
+  writeEscPulse(neutralPulseUs);
+  Serial.println("ESC neutral; waiting 3 seconds to arm");
+  delay(3000);
+  Serial.print("Motor initialized on GPIO");
+  Serial.println(escPin);
 }
+
 void motorForward(int speed)
 {
-  int pulse = map(speed, 0, 100, 1500, 2000);
-  esc.writeMicroseconds(pulse);
+  speed = constrain(speed, minSpeed, maxSpeed);
+  writeEscPulse(map(speed, minSpeed, maxSpeed, neutralPulseUs, 2000));
 }
+
 void motorReverse(int speed)
 {
-  int pulse = map(speed, 0, 100, 1500, 1000);
-  esc.writeMicroseconds(pulse);
+  speed = constrain(speed, minSpeed, maxSpeed);
+  writeEscPulse(map(speed, minSpeed, maxSpeed, neutralPulseUs, 1000));
 }
+
 void motorStop()
 {
-  esc.writeMicroseconds(1500);
+  writeEscPulse(neutralPulseUs);
 }
+
 void motorTest()
 {
-  Serial.println("MOTOR FORWARD");
-  for (int i = 0; i <= 100; i++)
-  {
-    motorForward(i);
-    Serial.println(i);
-    delay(50);
-  }
-
-  Serial.println("MOTOR STOP");
+  Serial.println("Motor test: 5% forward for 300 ms");
+  motorForward(5);
+  delay(300);
   motorStop();
-  delay(3000);
-
-  Serial.println("MOTOR REVERSE");
-  for (int i = 0; i <= 100; i++)
-  {
-    motorReverse(i);
-    Serial.println(i);
-    delay(50);
-  }
-
-  Serial.println("Motor test: stop");
-  motorStop();
-  Serial.println("Motor test: done");
+  Serial.println("Motor test complete; ESC neutral");
 }

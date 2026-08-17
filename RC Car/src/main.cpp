@@ -1,48 +1,35 @@
-//#define	VS int VS const int VS constexpr
-//String vs *char
-//Get rid of debug print lines once finished
 #include <Arduino.h>
 #include <LittleFS.h>
-#include "motor.h"
-#include "servo.h"
-#include "ota.h"
-#include "network.h"
+
 #include "neopixel.h"
-#include "sensors.h"
+#include "network.h"
+#include "servo.h"
 #include "volt.h"
 
-//SETUP
 void setup()
 {
   Serial.begin(115200);
-  delay(500);
-  Serial.println("ESP32 started");
+  delay(1500);
+
+  Serial.println();
+  Serial.println("RC firmware starting");
+
   if (!LittleFS.begin(true))
   {
-    Serial.println("LittleFS mount failed");
+    Serial.println("ERROR: LittleFS mount failed");
   }
   else
   {
-    Serial.println("LittleFS started");
+    Serial.println("LittleFS ready");
   }
-  voltInit();
+
   servoInit();
-  motorInit();
+  voltInit();
   neopixelInit();
   wifiInit();
-  //otaInit();
-  //sensorsInit();
 }
 
-//LOOP
 void loop()
 {
-  voltRead();
   wifiHandle();
-  //otaHandle();
-  //neopixelTest();
-  //motorTest();
-  //servoTest();
-  //readToF();
-  //readIMU();
 }

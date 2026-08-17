@@ -1,16 +1,20 @@
 #include "volt.h"
 #include <Arduino.h>
-int voltPin = 4;
-float dividerRatio = 100.0f/ 330.0f+ 100.0f; 
+
+namespace
+{
+constexpr uint8_t voltagePin = 10;
+}
 
 void voltInit()
 {
-  analogSetAttenuation(ADC_11db);
+  analogSetPinAttenuation(voltagePin, ADC_11db);
+  Serial.print("Battery voltage ADC initialized on GPIO");
+  Serial.println(voltagePin);
 }
 
 float voltRead()
 {
-  // Read the voltage from the sensor
-  float vADC = analogReadMilliVolts(voltPin) / 1000.0f; // Convert mV to V
-  return vADC / dividerRatio; // Replace with actual voltage reading
+  // Scale the ADC voltage back through the 330k/100k divider.
+  return (analogReadMilliVolts(voltagePin) / 1000.0f) * 4.3f;
 }

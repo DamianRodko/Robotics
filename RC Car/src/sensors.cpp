@@ -1,69 +1,88 @@
 #include "sensors.h"
+#include <Arduino.h>
 #include <Adafruit_VL53L0X.h>
-#include <Wire.h>
 #include <ICM_20948.h>
-//ToF
-Adafruit_VL53L0X lox;
+#include <Wire.h>
 
-//IMU
+namespace
+{
+constexpr uint8_t tofShutdownPin = 17;
+Adafruit_VL53L0X tofSensor;
 ICM_20948_I2C imu;
+bool tofReady = false;
+bool imuReady = false;
+}
+
 void sensorsInit()
 {
-  //I2C
-  Wire.begin(15, 16);
-  //Wire.setClock(100000);
-  
-  //ToF
-  if (!lox.begin())
+  pinMode(tofShutdownPin, OUTPUT);
+  digitalWrite(tofShutdownPin, LOW);
+  delay(10);
+  digitalWrite(tofShutdownPin, HIGH);
+  delay(10);
+
+  Wire.begin(11, 12);
+
+  tofReady = tofSensor.begin();
+  if (!tofReady)
   {
-    Serial.println("Sensor not found");
+    Serial.println("VL53L0X not found");
   }
   else
   {
-    Serial.println("VL53L0X Ready");
+    Serial.println("VL53L0X ready");
   }
   delay(100);
 
-  //IMU
-  imu.begin(Wire, 1); // 0 for GND, 1 for +
-  if (imu.status != ICM_20948_Stat_Ok)
+  imu.begin(Wire, 0);
+  imuReady = imu.status == ICM_20948_Stat_Ok;
+  if (!imuReady)
   {
-    Serial.println("IMU not found");
+    Serial.println("ICM-20948 not found");
   }
   else
   {
-    Serial.println("IMU Ready");
+    Serial.println("ICM-20948 ready");
   }
 }
 
-void readToF()
+void readDistance()
 {
-  VL53L0X_RangingMeasurementData_t measure;
-  lox.rangingTest(&measure, false);
-  if (measure.RangeStatus != 4 && measure.RangeMilliMeter < 2000)
+  if (!tofReady)
   {
-    Serial.print("Distance: ");
-    Serial.print(measure.RangeMilliMeter);
-    Serial.println(" mm");
+    return;
   }
+
+  VL53L0X_RangingMeasurementData_t measurement;
+  tofSensor.rangingTest(&measurement, false);
+  if (measurement.RangeStatus == 4 || measurement.RangeMilliMeter >= 2000)
+  {
+    return;
+  }
+
+  Serial.print("Distance: ");
+  Serial.print(measurement.RangeMilliMeter);
+  Serial.println(" mm");
 }
 
-void readIMU()
+void readImu()
 {
-  if (imu.dataReady())
+  if (!imuReady || !imu.dataReady())
   {
-    imu.getAGMT();
-    Serial.print("Accel X: ");
-    Serial.print(imu.accX());
-    Serial.print(" | Y: ");
-    Serial.print(imu.accY());
-    Serial.print(" | Z: ");
-    Serial.println(imu.accZ());
-    Serial.print("Gyro  X: ");
-    Serial.print(imu.gyrX());
-    Serial.print(" | Y: "); 
-    Serial.print(imu.gyrY());
-    Serial.print(" | Z: ");
-    Serial.println(imu.gyrZ());
+    return;
   }
+
+  imu.getAGMT();
+  Serial.print("Accel X: ");
+  Serial.print(imu.accX());
+  Serial.print(" | Y: ");
+  Serial.print(imu.accY());
+  Serial.print(" | Z: ");
+  Serial.println(imu.accZ());
+  Serial.print("Gyro X: ");
+  Serial.print(imu.gyrX());
+  Serial.print(" | Y: ");
+  Serial.print(imu.gyrY());
+  Serial.print(" | Z: ");
+  Serial.println(imu.gyrZ());
 }

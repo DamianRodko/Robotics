@@ -1,29 +1,49 @@
 #include "ota.h"
+#include "motor.h"
+#include "servo.h"
+#include <Arduino.h>
 #include <ArduinoOTA.h>
+
+namespace
+{
+unsigned int lastProgressPercent = 101;
+}
 
 void otaInit()
 {
-  ArduinoOTA.setHostname("Damian's ESP32");
-  ArduinoOTA.setPassword("DRCOTA"); // change this to whatever you want
+  ArduinoOTA.setHostname("damians-esp32");
+  ArduinoOTA.setPassword("DRCOTA");
 
   ArduinoOTA.onStart([]()
   {
-    Serial.println("OTA Start");
+    motorStop();
+    centerServo();
+    lastProgressPercent = 101;
+    Serial.println("OTA started; controls stopped");
   });
   ArduinoOTA.onEnd([]()
   {
-    Serial.println("OTA Done");
+    Serial.println("OTA complete");
   });
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
   {
-    Serial.printf("Progress: %u%%\n", (progress / (total / 100)));
+    if (total > 0)
+    {
+      const unsigned int percent = static_cast<unsigned int>(
+          (static_cast<uint64_t>(progress) * 100U) / total);
+      if (percent != lastProgressPercent)
+      {
+        lastProgressPercent = percent;
+        Serial.printf("OTA progress: %u%%\n", percent);
+      }
+    }
   });
   ArduinoOTA.onError([](ota_error_t error)
   {
-    Serial.printf("OTA Error[%u]\n", error);
+    Serial.printf("OTA error: %u\n", error);
   });
   ArduinoOTA.begin();
-  Serial.println("OTA Ready");
+  Serial.println("OTA ready");
 }
 
 void otaHandle()

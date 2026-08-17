@@ -1,35 +1,63 @@
 #include "servo.h"
-#include <ESP32Servo.h>
+#include <Arduino.h>
 
-Servo s1;
-int servoPin = 13;
-int minAngle = 60;
-int maxAngle = 120;
+namespace
+{
+  constexpr uint8_t servoPin = 13;
+  constexpr uint8_t servoChannel = 0;
+  bool servoReady = false;
+
+  int angleToPulse(int angle)
+  {
+    return map(angle, 0, 180, 1000, 2000);
+  }
+}
 
 void servoInit()
 {
-    s1.attach(servoPin);
-    Serial.println("Servo attached");
-    s1.write(90);
+  servoReady = ledcSetup(servoChannel, 50, 14) != 0;
+  if (!servoReady)
+  {
+    Serial.println("ERROR: steering servo PWM setup failed");
+    return;
+  }
+
+  ledcAttachPin(servoPin, servoChannel);
+  centerServo();
+  Serial.print("Steering servo initialized on GPIO");
+  Serial.println(servoPin);
 }
 
 void setServo(int angle)
 {
-  angle = constrain(angle, minAngle, maxAngle);
-  s1.write(angle);
+  if (!servoReady)
+  {
+    return;
+  }
+
+  angle = constrain(angle, servoMinAngle, servoMaxAngle);
+  ledcWrite(servoChannel, (angleToPulse(angle) * 16383UL) / 20000UL);
+}
+
+void centerServo()
+{
+  setServo(servoCenterAngle);
 }
 
 void servoTest()
 {
-  Serial.println("SERVO RIGHT");
-  for (int angle = minAngle; angle <= maxAngle; angle++)
+  Serial.println("SERVO TEST STARTED");
+
+  for (int angle = servoMinAngle; angle <= servoMaxAngle; angle += 5)
   {
-    s1.write(angle);
-    delay(15);
+    setServo(angle);
+    Serial.print("Servo: ");
+    Serial.print(angle);
+    Serial.print(" | pulse: ");
+    Serial.print(angleToPulse(angle));
+    Serial.println(" us");
+    delay(1500);
   }
-  Serial.println("SERVO LEFT");
-  for (int angle = maxAngle; angle >= minAngle; angle--) {
-    s1.write(angle);
-    delay(15);
-  }
+  centerServo();
+  Serial.println("SERVO TEST COMPLETE");
 }
