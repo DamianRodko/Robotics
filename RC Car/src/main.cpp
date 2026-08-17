@@ -1,35 +1,41 @@
 #include <Arduino.h>
-#include <LittleFS.h>
-
-#include "neopixel.h"
-#include "network.h"
-#include "servo.h"
-#include "volt.h"
+#include "motor.h"
 
 void setup()
 {
   Serial.begin(115200);
-  delay(1500);
+  motorInit();
 
-  Serial.println();
-  Serial.println("RC firmware starting");
-
-  if (!LittleFS.begin(true))
+  while (Serial.available())
   {
-    Serial.println("ERROR: LittleFS mount failed");
-  }
-  else
-  {
-    Serial.println("LittleFS ready");
+    Serial.read();
   }
 
-  servoInit();
-  voltInit();
-  neopixelInit();
-  wifiInit();
+  Serial.println("Motor bench test ready");
+  Serial.println("ESC mode: F/B; wheels must be off the ground");
+  Serial.println("Type T for 5% forward for 300 ms");
+  Serial.println("Type S to force neutral");
 }
 
 void loop()
 {
-  wifiHandle();
+  if (!Serial.available())
+  {
+    return;
+  }
+
+  const char command = Serial.read();
+  if (command == 't' || command == 'T')
+  {
+    motorTest();
+    while (Serial.available())
+    {
+      Serial.read();
+    }
+  }
+  else if (command == 's' || command == 'S')
+  {
+    motorStop();
+    Serial.println("ESC neutral");
+  }
 }
